@@ -31,6 +31,8 @@ export interface User {
     email: string;
     avatar?: string;
     email_verified_at: string | null;
+    role: 'super_admin' | 'admin' | 'user';
+    status: 'active' | 'inactive';
     created_at: string;
     updated_at: string;
 }
