@@ -11,7 +11,7 @@ use Illuminate\Support\Facades\Route;
 use Inertia\Inertia;
 
 Route::get('/', function () {
-    return Inertia::render('Welcome');
+    return Inertia::render('Ecommerce/Home');
 })->name('home');
 
 Route::get('dashboard', [DashboardController::class, 'index'])
@@ -68,6 +68,59 @@ Route::middleware(['auth', 'verified', 'role:user,admin,super_admin'])->prefix('
         Route::put('/', [UserProfileController::class, 'update'])->name('update');
         Route::put('/password', [UserProfileController::class, 'updatePassword'])->name('update-password');
     });
+});
+
+// Ecommerce Routes (Public)
+Route::group([], function () {
+    Route::get('/products', function () {
+        return Inertia::render('Ecommerce/Products');
+    })->name('products');
+
+    Route::get('/categories', function () {
+        return Inertia::render('Ecommerce/Categories');
+    })->name('categories');
+
+    Route::get('/categories/{category}', function ($category) {
+        return Inertia::render('Ecommerce/CategoryProducts', [
+            'category' => $category
+        ]);
+    })->name('categories.show');
+
+    Route::get('/products/{product}', function ($product) {
+        return Inertia::render('Ecommerce/ProductDetails', [
+            'productId' => $product
+        ]);
+    })->name('products.show');
+
+    Route::get('/cart', function () {
+        return Inertia::render('Ecommerce/Cart');
+    })->name('cart');
+
+    Route::get('/wishlist', function () {
+        return Inertia::render('Ecommerce/Wishlist');
+    })->name('wishlist');
+
+    Route::get('/checkout', function () {
+        return Inertia::render('Ecommerce/Checkout');
+    })->name('checkout');
+
+    Route::get('/order-confirmation/{orderNumber}', function ($orderNumber) {
+        return Inertia::render('Ecommerce/OrderConfirmation', [
+            'orderNumber' => $orderNumber
+        ]);
+    })->name('order.confirmation');
+
+    Route::get('/search', function () {
+        return Inertia::render('Ecommerce/SearchResults');
+    })->name('search');
+
+    Route::get('/offers', function () {
+        return Inertia::render('Ecommerce/Offers');
+    })->name('offers');
+
+    Route::get('/contact', function () {
+        return Inertia::render('Ecommerce/Contact');
+    })->name('contact');
 });
 
 require __DIR__ . '/settings.php';
