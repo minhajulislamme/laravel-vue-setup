@@ -4,11 +4,17 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import Badge from '@/components/ui/badge/Badge.vue';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { 
+    DropdownMenu, 
+    DropdownMenuContent, 
+    DropdownMenuItem, 
+    DropdownMenuTrigger 
+} from '@/components/ui/dropdown-menu';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table/index';
 import { type BreadcrumbItem, type User } from '@/types';
 import { Head, Link, router, useForm } from '@inertiajs/vue3';
-import { Users, Plus, Search, Filter, Edit, Trash2, ToggleLeft, ToggleRight } from 'lucide-vue-next';
-import { ref, watch } from 'vue';
+import { Users, Plus, Search, Filter, Edit, Trash2, ToggleLeft, ToggleRight, Download, FileText, Sheet, ChevronDown } from 'lucide-vue-next';
+import { ref, watch, computed } from 'vue';
 
 interface Props {
     users: {
@@ -69,8 +75,44 @@ watch(() => [searchForm.role, searchForm.status], () => {
 });
 
 const clearFilters = () => {
-    searchForm.reset();
+    // Reset all form fields
+    searchForm.search = '';
+    searchForm.role = '';
+    searchForm.status = '';
+    
+    // Force the form to reset and clear any processing state
+    searchForm.clearErrors();
+    
+    // Perform search with cleared filters
     performSearch();
+};
+
+// Check if any filters are active
+const hasActiveFilters = computed(() => {
+    return searchForm.search || searchForm.role || searchForm.status;
+});
+
+// Download functions
+const downloadPDF = () => {
+    const queryParams = new URLSearchParams();
+    
+    if (searchForm.search) queryParams.append('search', searchForm.search);
+    if (searchForm.role) queryParams.append('role', searchForm.role);
+    if (searchForm.status) queryParams.append('status', searchForm.status);
+    queryParams.append('format', 'pdf');
+    
+    window.open(`/super-admin/users/export?${queryParams.toString()}`, '_blank');
+};
+
+const downloadExcel = () => {
+    const queryParams = new URLSearchParams();
+    
+    if (searchForm.search) queryParams.append('search', searchForm.search);
+    if (searchForm.role) queryParams.append('role', searchForm.role);
+    if (searchForm.status) queryParams.append('status', searchForm.status);
+    queryParams.append('format', 'excel');
+    
+    window.open(`/super-admin/users/export?${queryParams.toString()}`, '_blank');
 };
 
 const toggleUserStatus = (user: User) => {
@@ -147,7 +189,7 @@ const getStatusBadgeColor = (status: string) => {
                         </div>
                         <select 
                             v-model="searchForm.role"
-                            class="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background file:border-0 file:bg-transparent file:text-sm file:font-medium placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50"
+                            class="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background file:border-0 file:bg-transparent file:text-sm file:font-medium placeholder:text-muted-foreground focus:outline-none focus:ring-0 focus:border-primary disabled:cursor-not-allowed disabled:opacity-50"
                         >
                             <option value="">All Roles</option>
                             <option value="super_admin">Super Admin</option>
@@ -156,14 +198,41 @@ const getStatusBadgeColor = (status: string) => {
                         </select>
                         <select 
                             v-model="searchForm.status"
-                            class="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background file:border-0 file:bg-transparent file:text-sm file:font-medium placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50"
+                            class="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background file:border-0 file:bg-transparent file:text-sm file:font-medium placeholder:text-muted-foreground focus:outline-none focus:ring-0 focus:border-primary disabled:cursor-not-allowed disabled:opacity-50"
                         >
                             <option value="">All Status</option>
                             <option value="active">Active</option>
                             <option value="inactive">Inactive</option>
                         </select>
-                        <Button variant="outline" @click="clearFilters">
-                            Clear Filters
+                        
+                        <!-- Download Dropdown -->
+                        <!-- <DropdownMenu>
+                            <DropdownMenuTrigger asChild>
+                                <Button variant="outline" class="h-10">
+                                    <Download class="w-4 h-4 mr-2" />
+                                    Download
+                                    <ChevronDown class="w-4 h-4 ml-2" />
+                                </Button>
+                            </DropdownMenuTrigger>
+                            <DropdownMenuContent align="end" class="w-48">
+                                <DropdownMenuItem @click="downloadPDF" class="cursor-pointer">
+                                    <FileText class="w-4 h-4 mr-2" />
+                                    Download as PDF
+                                </DropdownMenuItem>
+                                <DropdownMenuItem @click="downloadExcel" class="cursor-pointer">
+                                    <Sheet class="w-4 h-4 mr-2" />
+                                    Download as Excel
+                                </DropdownMenuItem>
+                            </DropdownMenuContent>
+                        </DropdownMenu> -->
+                        
+                        <Button 
+                            variant="outline" 
+                            @click="clearFilters" 
+                            :disabled="searchForm.processing || !hasActiveFilters"
+                            :class="{ 'opacity-50': !hasActiveFilters }"
+                        >
+                            {{ searchForm.processing ? 'Clearing...' : 'Clear Filters' }}
                         </Button>
                     </div>
                 </CardContent>
@@ -260,6 +329,34 @@ const getStatusBadgeColor = (status: string) => {
                                 ]"
                                 v-html="link.label"
                             />
+                        </div>
+                    </div>
+
+                    <!-- Download Section -->
+                    <div class="mt-6 flex items-center justify-between border-t pt-4">
+                        <div class="text-sm text-gray-500">
+                            Export {{ users.total }} users with current filters
+                        </div>
+                        <div class="flex gap-2">
+                            <DropdownMenu>
+                                <DropdownMenuTrigger asChild>
+                                    <Button variant="outline" class="h-9">
+                                        <Download class="w-4 h-4 mr-2" />
+                                        Export Data
+                                        <ChevronDown class="w-4 h-4 ml-2" />
+                                    </Button>
+                                </DropdownMenuTrigger>
+                                <DropdownMenuContent align="end" class="w-48">
+                                    <DropdownMenuItem @click="downloadPDF" class="cursor-pointer">
+                                        <FileText class="w-4 h-4 mr-2" />
+                                        Download as PDF
+                                    </DropdownMenuItem>
+                                    <DropdownMenuItem @click="downloadExcel" class="cursor-pointer">
+                                        <Sheet class="w-4 h-4 mr-2" />
+                                        Download as Excel
+                                    </DropdownMenuItem>
+                                </DropdownMenuContent>
+                            </DropdownMenu>
                         </div>
                     </div>
                 </CardContent>

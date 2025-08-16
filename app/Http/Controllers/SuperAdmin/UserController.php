@@ -262,4 +262,139 @@ class UserController extends Controller
         return redirect()->route('super-admin.users.index')
             ->with('success', $message);
     }
+
+    /**
+     * Export users data as PDF or Excel
+     */
+    public function export(Request $request)
+    {
+        /** @var \App\Models\User $user */
+        $user = Auth::user();
+
+        if (!$user->isSuperAdmin()) {
+            abort(403, 'Unauthorized');
+        }
+
+        $query = User::query();
+
+        // Apply the same filters as the index method
+        if ($request->has('search') && $request->search) {
+            $query->where(function ($q) use ($request) {
+                $q->where('name', 'like', '%' . $request->search . '%')
+                    ->orWhere('email', 'like', '%' . $request->search . '%');
+            });
+        }
+
+        if ($request->has('role') && $request->role) {
+            $query->where('role', $request->role);
+        }
+
+        if ($request->has('status') && $request->status) {
+            $query->where('status', $request->status);
+        }
+
+        $users = $query->orderBy('created_at', 'desc')->get();
+
+        $format = $request->input('format', 'pdf');
+        $timestamp = now()->format('Y-m-d_H-i-s');
+
+        if ($format === 'excel') {
+            return $this->exportToExcel($users, $timestamp);
+        } else {
+            return $this->exportToPDF($users, $timestamp);
+        }
+    }
+
+    /**
+     * Export users to PDF
+     */
+    private function exportToPDF($users, $timestamp)
+    {
+        $html = $this->generateUsersHTML($users, 'PDF');
+
+        // For now, we'll return a simple HTML response
+        // In production, you might want to use a library like DomPDF or wkhtmltopdf
+        return response($html)
+            ->header('Content-Type', 'text/html')
+            ->header('Content-Disposition', "attachment; filename=users_export_{$timestamp}.html");
+    }
+
+    /**
+     * Export users to Excel (CSV format)
+     */
+    private function exportToExcel($users, $timestamp)
+    {
+        $csv = "Name,Email,Role,Status,Created At\n";
+
+        foreach ($users as $user) {
+            $csv .= '"' . str_replace('"', '""', $user->name) . '",';
+            $csv .= '"' . str_replace('"', '""', $user->email) . '",';
+            $csv .= '"' . str_replace('"', '""', ucfirst($user->role)) . '",';
+            $csv .= '"' . str_replace('"', '""', ucfirst($user->status)) . '",';
+            $csv .= '"' . $user->created_at->format('Y-m-d H:i:s') . '"' . "\n";
+        }
+
+        return response($csv)
+            ->header('Content-Type', 'text/csv')
+            ->header('Content-Disposition', "attachment; filename=users_export_{$timestamp}.csv");
+    }
+
+    /**
+     * Generate HTML for users table
+     */
+    private function generateUsersHTML($users, $format)
+    {
+        $html = '<!DOCTYPE html>
+<html>
+<head>
+    <title>Users Export - ' . $format . '</title>
+    <style>
+        body { font-family: Arial, sans-serif; margin: 20px; }
+        table { width: 100%; border-collapse: collapse; margin-top: 20px; }
+        th, td { padding: 12px; text-align: left; border: 1px solid #ddd; }
+        th { background-color: #f8f9fa; font-weight: bold; }
+        tr:nth-child(even) { background-color: #f9f9f9; }
+        .header { margin-bottom: 20px; }
+        .status-active { color: #22c55e; font-weight: bold; }
+        .status-inactive { color: #ef4444; font-weight: bold; }
+        .role { text-transform: capitalize; }
+    </style>
+</head>
+<body>
+    <div class="header">
+        <h1>Users Export Report</h1>
+        <p>Generated on: ' . now()->format('F j, Y \a\t g:i A') . '</p>
+        <p>Total Users: ' . $users->count() . '</p>
+    </div>
+    
+    <table>
+        <thead>
+            <tr>
+                <th>Name</th>
+                <th>Email</th>
+                <th>Role</th>
+                <th>Status</th>
+                <th>Created At</th>
+            </tr>
+        </thead>
+        <tbody>';
+
+        foreach ($users as $user) {
+            $statusClass = $user->status === 'active' ? 'status-active' : 'status-inactive';
+            $html .= '<tr>
+                <td>' . htmlspecialchars($user->name) . '</td>
+                <td>' . htmlspecialchars($user->email) . '</td>
+                <td class="role">' . htmlspecialchars(ucfirst($user->role)) . '</td>
+                <td class="' . $statusClass . '">' . htmlspecialchars(ucfirst($user->status)) . '</td>
+                <td>' . $user->created_at->format('M j, Y g:i A') . '</td>
+            </tr>';
+        }
+
+        $html .= '</tbody>
+    </table>
+</body>
+</html>';
+
+        return $html;
+    }
 }

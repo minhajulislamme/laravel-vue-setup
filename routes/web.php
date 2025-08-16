@@ -32,6 +32,7 @@ Route::middleware(['auth', 'verified', 'role:super_admin'])->prefix('super-admin
         Route::delete('/{user}', [SuperAdminUserController::class, 'destroy'])->name('destroy');
         Route::patch('/{user}/toggle-status', [SuperAdminUserController::class, 'toggleStatus'])->name('toggle-status');
         Route::post('/bulk-action', [SuperAdminUserController::class, 'bulkAction'])->name('bulk-action');
+        Route::get('/export', [SuperAdminUserController::class, 'export'])->name('export');
     });
 
     // Super Admin Settings
